@@ -6,8 +6,12 @@
 
 
 int main()
-{
-    std::vector<int> list(100); 
+{   
+    int max;
+    std::cout << "Enter a max number to find primes from 2 to max.\n";
+    std::cin >> max;
+
+    std::vector<int> list(max); 
     for(int i = 0; i < list.size(); i++){
         list[i] = i;
     }
@@ -25,5 +29,7 @@ int main()
             std::cout << list[i] << " ";
         }
     }
+    
+    std::cout << "\n";
 
 }
