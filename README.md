@@ -1,2 +1,2 @@
 # C-_stuff
-# cpp_stuff
+Some exercises from Bjarne Stroustrups Programming - principles and practice book
