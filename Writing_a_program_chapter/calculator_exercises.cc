@@ -124,7 +124,6 @@ double primary()
     }
 }
 
-//------------------------------------------------------------------------------
 
 // deal with *, /
 double term()
@@ -153,7 +152,6 @@ double term()
     }
 }
 
-//------------------------------------------------------------------------------
 
 // deal with + and -
 double expression()
@@ -178,7 +176,7 @@ double expression()
     }
 }
 
-//------------------------------------------------------------------------------
+
 // get factorial of n
 double my_factorial(double n){
     int res = n;
@@ -198,7 +196,7 @@ try
 {
     while (std::cin) {
         Token t = ts.get();
-        if (t.kind == '=')        // ';' for "print now"
+        if (t.kind == '=')
             std::cout << "=" << val << '\n';
         else
             ts.putback(t);
