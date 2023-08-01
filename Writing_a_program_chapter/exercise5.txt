@@ -1,0 +1,19 @@
+Sentence:
+    Article Noun Verb
+    Noun Verb
+    Sentence Conjucation Sentence
+Conjunction:
+    "and"
+    "or"
+    "but"
+Noun:
+    "birds"
+    "fish"
+    "C++"
+Verb:
+    "rules"
+    "fly"
+    "swim"
+Article:
+    "A"
+    "The"

@@ -14,7 +14,6 @@ public:
 };
 
 
-
 class Name_val_stream {
 public:    
     bool seen(std::string name);
