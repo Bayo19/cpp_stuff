@@ -22,7 +22,7 @@ struct Token {
 	char kind;
 	double value;
 	std::string name;
-	Token(char ch) :kind(ch), value(0) { } // Token for operators - ch = operator
+	Token(char ch) :kind(ch), value(0) { } // Token for operators or functions - ch = operator
 	Token(char ch, double val) :kind(ch), value(val) { } // Token for numbers - ch = 8, value = floating point number
     Token(char ch, std::string n) :kind(ch), name(n) {} // Token for variables ch = name (constant), name = variable name
 };
@@ -40,13 +40,16 @@ public:
 
 const int k = 1000;
 const char let = 'L';
-const char quit = 'q';
 const char print = ';';
 const char number = '8';
 const char name = 'a';
 const char sqrt_key = 's';
-const std::string declkey = "let";
+const char power_key = 'p';
+const char quit_key = 'q';
+const std::string quit = "exit";
+const std::string declkey = "#";
 const std::string square_root = "sqrt";
+const std::string power = "pow";
 
 
 Token Token_stream::get()
@@ -55,9 +58,8 @@ Token Token_stream::get()
 	char ch;
 	std::cin >> ch;
 	switch (ch) {
-    case quit:
-        exit(0);
-        break;
+    case '#':
+        return Token(let); // Return Token for declaration keyword;
 	case '(':
 	case ')':
 	case '+':
@@ -67,6 +69,7 @@ Token Token_stream::get()
 	case '%':
 	case ';':
 	case '=':
+    case ',':
 		return Token(ch); // Return Token for operator
 	case '.':
 	case '0':
@@ -90,8 +93,9 @@ Token Token_stream::get()
 			s += ch;
 			while (std::cin.get(ch) && (isalpha(ch) || isdigit(ch))) s += ch;
 			std::cin.unget();
-			if (s == declkey) return Token(let);
-            if (s == square_root) return Token('s'); // Return Token for sqrt function
+            if (s == square_root) return Token(sqrt_key); // Return Token for sqrt function
+            if (s == power) return Token(power_key); // Return Token for pow function
+            if (s == quit) return Token(quit_key); // Return Token for quitting program;
 			return Token(name, s);
 		}
 		error("Bad token");
@@ -167,6 +171,31 @@ double square_root_fn()
     }
 }
 
+int power_fn()
+{
+    Token t = ts.get();
+    switch(t.kind){
+        case '(':
+        {
+            double d = expression();
+            Token t2 = ts.get();
+            char ch;
+            int i;
+            if (t2.kind != ',') error("pow takes two arguments");
+            
+            std::cin >> i;
+            double res = d;
+            for(int n = 0; n < (i-1); n++){
+                res *= d;
+            }
+            Token t3 = ts.get();
+            if (t3.kind != ')') error("')' expected");
+            return res;
+        }
+        default:
+		    error("function: 'pow' takes two arguments: pow(double x, int i)");
+    }
+}
 
 double primary()
 {
@@ -195,6 +224,8 @@ double primary()
     }
     case sqrt_key:
         return square_root_fn();
+    case power_key:
+        return power_fn();
 	default:
 		error("primary expected");
 	}
@@ -295,7 +326,7 @@ void calculate()
             std::cout << prompt;
             Token t = ts.get();
             while (t.kind == print) t = ts.get();
-            if (t.kind == quit) return;
+            if (t.kind == quit_key) return;
             ts.unget(t);
             std::cout << result << statement() << '\n';
         }
