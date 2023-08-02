@@ -13,6 +13,21 @@
 #include <algorithm>
 #include <cmath>
 
+const int k = 1000;
+const char assignment = '=';
+const char let = 'L';
+const char constant = 'C';
+const char print = ';';
+const char number = '8';
+const char name = 'a';
+const char sqrt_key = 's';
+const char power_key = 'p';
+const char quit_key = 'q';
+const std::string quit = "exit";
+const std::string declkey = "#";
+const std::string square_root = "sqrt";
+const std::string power = "pow";
+
 
 void error (std::string s)
 {
@@ -46,22 +61,6 @@ public:
 	void unget(Token t) { buffer = t; full = true; }
 	void ignore(char);
 };
-
-
-const int k = 1000;
-const char assignment = '=';
-const char let = 'L';
-const char constant = 'C';
-const char print = ';';
-const char number = '8';
-const char name = 'a';
-const char sqrt_key = 's';
-const char power_key = 'p';
-const char quit_key = 'q';
-const std::string quit = "exit";
-const std::string declkey = "#";
-const std::string square_root = "sqrt";
-const std::string power = "pow";
 
 
 Token Token_stream::get()
@@ -129,32 +128,42 @@ void Token_stream::ignore(char c)
 		if (ch == c) return;
 }
 
-struct Variable {
+struct Variable { // struct. Should I change to class
 	std::string name;
 	double value;
     bool constant; // is the variable constant (immutable) or not
 	Variable(std::string n, double v, bool c = false) :name(n), value(v), constant(c) { }
 };
 
-std::vector<Variable> names;
 
-double get_value(std::string s)
+class Symbol_table {
+public:
+    std::vector<Variable> var_table;
+    double get(std::string s);
+    void set(std::string s, double d);
+    bool is_declared(std::string s);
+    double declare(bool constant);
+
+};
+
+
+double Symbol_table::get(std::string s)
 {
-	for (int i = 0; i < names.size(); ++i)
-		if (names[i].name == s) return names[i].value;
+	for (int i = 0; i < var_table.size(); ++i)
+		if (var_table[i].name == s) return var_table[i].value;
     std::string err_msg = "get: undefined name " + s;
 	error(err_msg);
 }
 
-void set_value(std::string s, double d)
+void Symbol_table::set(std::string s, double d)
 {
     std::string err_msg = s + " is a const variable and cannot be reassigned";
-	for (int i = 0; i <= names.size(); ++i)
+	for (int i = 0; i <= var_table.size(); ++i)
     {   
-        if (names[i].constant) {error(err_msg); return;}
-		if (names[i].name == s) {
-			names[i].value = d;
-            names[i].constant = false;
+        if (var_table[i].constant) {error(err_msg); return;}
+		if (var_table[i].name == s) {
+			var_table[i].value = d;
+            var_table[i].constant = false;
 			return;
 		}
     }
@@ -162,15 +171,15 @@ void set_value(std::string s, double d)
 	error(err_msg);
 }
 
-bool is_declared(std::string s)
+bool Symbol_table::is_declared(std::string s)
 {
-	for (int i = 0; i < names.size(); ++i)
-		if (names[i].name == s) return true;
+	for (int i = 0; i < var_table.size(); ++i)
+		if (var_table[i].name == s) return true;
 	return false;
 }
 
 Token_stream ts;
-
+Symbol_table st;
 double expression();
 double assignment_fn(std::string name);
 
@@ -240,7 +249,7 @@ double primary()
             return assignment_fn(t.name);
         }
         ts.unget(t2);
-        return get_value(t.name);
+        return st.get(t.name);
     }
     case sqrt_key:
         return square_root_fn();
@@ -293,7 +302,7 @@ double expression()
 }
 
 // declaring a variable
-double declaration(bool constant = false)
+double Symbol_table::declare(bool constant = false)
 {
 	Token t = ts.get();
 	if (t.kind != 'a') error("name expected in declaration");
@@ -301,13 +310,13 @@ double declaration(bool constant = false)
     std::string err_msg = name + " declared twice";
 	if (is_declared(name)) error(err_msg);
 	Token t2 = ts.get();
-	if (t2.kind != '='){
+	if (t2.kind != assignment){
         err_msg = "= missing in declaration of " + name;
         error(err_msg);
     }
 	double d = expression();
-    if (!constant) {names.push_back(Variable(name, d)); return d;}
-	names.push_back(Variable(name, d, true));
+    if (!constant) {var_table.push_back(Variable(name, d)); return d;}
+	var_table.push_back(Variable(name, d, true));
 	return d;
 }
 
@@ -315,7 +324,7 @@ double declaration(bool constant = false)
 double assignment_fn(std::string name)
 {
     double d = expression();
-    set_value(name, d);
+    st.set(name, d);
     return d;
 }
 
@@ -325,9 +334,9 @@ double statement()
 	Token t = ts.get();
 	switch (t.kind) {
 	case let:
-		return declaration();
+		return st.declare();
     case constant:
-        return declaration(true);
+        return st.declare(true);
 	default:
 		ts.unget(t);
 		return expression();
