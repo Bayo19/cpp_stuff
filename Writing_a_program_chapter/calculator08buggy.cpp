@@ -37,13 +37,16 @@ public:
 	void ignore(char);
 };
 
+
+const int k = 1000;
 const char let = 'L';
 const char quit = 'q';
 const char print = ';';
 const char number = '8';
 const char name = 'a';
+const char sqrt_key = 's';
 const std::string declkey = "let";
-const int k = 1000;
+const std::string square_root = "sqrt";
 
 
 Token Token_stream::get()
@@ -88,6 +91,7 @@ Token Token_stream::get()
 			while (std::cin.get(ch) && (isalpha(ch) || isdigit(ch))) s += ch;
 			std::cin.unget();
 			if (s == declkey) return Token(let);
+            if (s == square_root) return Token('s'); // Return Token for sqrt function
 			return Token(name, s);
 		}
 		error("Bad token");
@@ -145,6 +149,25 @@ Token_stream ts;
 
 double expression();
 
+double square_root_fn()
+{
+    Token t = ts.get();
+    switch(t.kind){
+        case '(':
+        {
+            double d = expression();
+            if (d <= 0) {
+                error("can not get square root of number less than or equal to 0");
+            }
+
+            Token t2 = ts.get();
+            if (t2.kind != ')') error("')' expected");
+            return sqrt(d);
+        }
+    }
+}
+
+
 double primary()
 {
 	Token t = ts.get();
@@ -170,6 +193,8 @@ double primary()
         ts.unget(t2);
         return get_value(t.name);
     }
+    case sqrt_key:
+        return square_root_fn();
 	default:
 		error("primary expected");
 	}
