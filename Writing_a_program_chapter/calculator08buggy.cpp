@@ -13,10 +13,20 @@
 #include <algorithm>
 #include <cmath>
 
+
 void error (std::string s)
 {
   throw std::runtime_error (s);
 }
+
+// run-time checked narrowing cast (type conversion):
+template<class R, class A> R narrow_cast(const A& a)
+{
+R r = a;
+if (A(r)!=a) error(std::string("info loss"));
+return r;
+}
+
 
 struct Token {
 	char kind;
@@ -39,7 +49,9 @@ public:
 
 
 const int k = 1000;
+const char assignment = '=';
 const char let = 'L';
+const char constant = 'C';
 const char print = ';';
 const char number = '8';
 const char name = 'a';
@@ -59,7 +71,9 @@ Token Token_stream::get()
 	std::cin >> ch;
 	switch (ch) {
     case '#':
-        return Token(let); // Return Token for declaration keyword;
+        return Token(let); // Return Token for variable declaration keyword;
+    case 'c':
+        return Token(constant); // Return Token for constant variable declaration keyword;
 	case '(':
 	case ')':
 	case '+':
@@ -88,7 +102,7 @@ Token Token_stream::get()
 	return Token(number, val); // Return Token for floating point number
 	}
 	default:
-		if (isalpha(ch)) {
+		if (isalpha(ch) || ch == '_') { // Allow underscores in variable names;
 			std::string s;
 			s += ch;
 			while (std::cin.get(ch) && (isalpha(ch) || isdigit(ch))) s += ch;
@@ -118,7 +132,8 @@ void Token_stream::ignore(char c)
 struct Variable {
 	std::string name;
 	double value;
-	Variable(std::string n, double v) :name(n), value(v) { }
+    bool constant; // is the variable constant (immutable) or not
+	Variable(std::string n, double v, bool c = false) :name(n), value(v), constant(c) { }
 };
 
 std::vector<Variable> names;
@@ -133,12 +148,17 @@ double get_value(std::string s)
 
 void set_value(std::string s, double d)
 {
+    std::string err_msg = s + " is a const variable and cannot be reassigned";
 	for (int i = 0; i <= names.size(); ++i)
+    {   
+        if (names[i].constant) {error(err_msg); return;}
 		if (names[i].name == s) {
 			names[i].value = d;
+            names[i].constant = false;
 			return;
 		}
-    std::string err_msg = "set: undefined name " + s;
+    }
+    err_msg = "set: undefined name " + s;
 	error(err_msg);
 }
 
@@ -152,6 +172,8 @@ bool is_declared(std::string s)
 Token_stream ts;
 
 double expression();
+double assignment_fn(std::string name);
+
 
 double square_root_fn()
 {
@@ -214,10 +236,8 @@ double primary()
 	case name:
     {
         Token t2 = ts.get();
-        if (t2.kind == '=') {
-            double d = expression();
-            set_value(t.name, d);
-            return get_value(t.name);
+        if (t2.kind == assignment) {
+            return assignment_fn(t.name);
         }
         ts.unget(t2);
         return get_value(t.name);
@@ -273,7 +293,7 @@ double expression()
 }
 
 // declaring a variable
-double declaration()
+double declaration(bool constant = false)
 {
 	Token t = ts.get();
 	if (t.kind != 'a') error("name expected in declaration");
@@ -286,12 +306,13 @@ double declaration()
         error(err_msg);
     }
 	double d = expression();
-	names.push_back(Variable(name, d));
+    if (!constant) {names.push_back(Variable(name, d)); return d;}
+	names.push_back(Variable(name, d, true));
 	return d;
 }
 
 
-double assignment(std::string name)
+double assignment_fn(std::string name)
 {
     double d = expression();
     set_value(name, d);
@@ -305,6 +326,8 @@ double statement()
 	switch (t.kind) {
 	case let:
 		return declaration();
+    case constant:
+        return declaration(true);
 	default:
 		ts.unget(t);
 		return expression();
