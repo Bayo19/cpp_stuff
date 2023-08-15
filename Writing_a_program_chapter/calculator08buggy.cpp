@@ -27,6 +27,8 @@ const std::string quit = "exit";
 const std::string declkey = "#";
 const std::string square_root = "sqrt";
 const std::string power = "pow";
+const std::string prompt = "> ";
+const std::string result = "= ";
 
 
 void error (std::string s)
@@ -34,19 +36,12 @@ void error (std::string s)
   throw std::runtime_error (s);
 }
 
-// run-time checked narrowing cast (type conversion):
-template<class R, class A> R narrow_cast(const A& a)
-{
-R r = a;
-if (A(r)!=a) error(std::string("info loss"));
-return r;
-}
-
 
 struct Token {
 	char kind;
 	double value;
 	std::string name;
+	
 	Token(char ch) :kind(ch), value(0) { } // Token for operators or functions - ch = operator
 	Token(char ch, double val) :kind(ch), value(val) { } // Token for numbers - ch = 8, value = floating point number
     Token(char ch, std::string n) :kind(ch), name(n) {} // Token for variables ch = name (constant), name = variable name
@@ -55,78 +50,13 @@ struct Token {
 class Token_stream {
 	bool full;
 	Token buffer;
+	std::istream& input_stream;
 public:
-	Token_stream() :full(0), buffer(0) { }
-	Token get();
+	Token_stream() :full(0), buffer(0), input_stream(std::cin){ }
+	Token get(std::istream& input_stream);
 	void unget(Token t) { buffer = t; full = true; }
-	void ignore(char);
+	void ignore(char, std::istream& input_stream);
 };
-
-
-Token Token_stream::get()
-{
-	if (full) { full = false; return buffer; }
-	char ch;
-	std::cin >> ch;
-	switch (ch) {
-    case '#':
-        return Token(let); // Return Token for variable declaration keyword;
-    case 'c':
-        return Token(constant); // Return Token for constant variable declaration keyword;
-	case '(':
-	case ')':
-	case '+':
-	case '-':
-	case '*':
-	case '/':
-	case '%':
-	case ';':
-	case '=':
-    case ',':
-		return Token(ch); // Return Token for operator
-	case '.':
-	case '0':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-	{	std::cin.unget();
-	double val;
-	std::cin >> val;
-	return Token(number, val); // Return Token for floating point number
-	}
-	default:
-		if (isalpha(ch) || ch == '_') { // Allow underscores in variable names;
-			std::string s;
-			s += ch;
-			while (std::cin.get(ch) && (isalpha(ch) || isdigit(ch))) s += ch;
-			std::cin.unget();
-            if (s == square_root) return Token(sqrt_key); // Return Token for sqrt function
-            if (s == power) return Token(power_key); // Return Token for pow function
-            if (s == quit) return Token(quit_key); // Return Token for quitting program;
-			return Token(name, s);
-		}
-		error("Bad token");
-	}
-}
-
-void Token_stream::ignore(char c)
-{
-	if (full && c == buffer.kind) {
-		full = false;
-		return;
-	}
-	full = false;
-
-	char ch;
-	while (std::cin >> ch)
-		if (ch == c) return;
-}
 
 struct Variable { // struct. Should I change to class
 	std::string name;
@@ -134,7 +64,6 @@ struct Variable { // struct. Should I change to class
     bool constant; // is the variable constant (immutable) or not
 	Variable(std::string n, double v, bool c = false) :name(n), value(v), constant(c) { }
 };
-
 
 class Symbol_table {
 public:
@@ -147,6 +76,60 @@ public:
 };
 
 
+Token Token_stream::get(std::istream& input_stream = std::cin)
+{
+	if (full) { full = false; return buffer; }
+	char ch;
+	input_stream >> ch;
+	switch (ch) {
+    case '#':
+        return Token(let); // Return Token for variable declaration keyword;
+    case 'c':
+        return Token(constant); // Return Token for constant variable declaration keyword;
+	case '(': case ')': case '+':
+	case '-': case '*': case '/':
+	case '%': case ';': case '=':
+    case ',':
+		return Token(ch); // Return Token for operator
+	case '.': case '0': case '1':
+	case '2': case '3': case '4':
+	case '5': case '6': case '7':
+	case '8': case '9':
+	{	
+	input_stream.unget();
+	double val;
+	input_stream >> val;
+	return Token(number, val); // Return Token for floating point number
+	}
+	default:
+		if (isalpha(ch) || ch == '_') { // Allow underscores in variable names;
+			std::string s;
+			s += ch;
+			while (input_stream.get(ch) && (isalpha(ch) || isdigit(ch))) s += ch;
+			input_stream.unget();
+            if (s == square_root) return Token(sqrt_key); // Return Token for sqrt function
+            if (s == power) return Token(power_key); // Return Token for pow function
+            if (s == quit) return Token(quit_key); // Return Token for quitting program;
+			return Token(name, s);
+		}
+		error("Bad token");
+	}
+}
+
+void Token_stream::ignore(char c, std::istream& input_stream = std::cin)
+{
+	if (full && c == buffer.kind) {
+		full = false;
+		return;
+	}
+	full = false;
+
+	char ch;
+	while (input_stream >> ch)
+		if (ch == c) return;
+}
+
+
 double Symbol_table::get(std::string s)
 {
 	for (int i = 0; i < var_table.size(); ++i)
@@ -154,6 +137,7 @@ double Symbol_table::get(std::string s)
     std::string err_msg = "get: undefined name " + s;
 	error(err_msg);
 }
+
 
 void Symbol_table::set(std::string s, double d)
 {
@@ -171,6 +155,7 @@ void Symbol_table::set(std::string s, double d)
 	error(err_msg);
 }
 
+
 bool Symbol_table::is_declared(std::string s)
 {
 	for (int i = 0; i < var_table.size(); ++i)
@@ -178,10 +163,11 @@ bool Symbol_table::is_declared(std::string s)
 	return false;
 }
 
-Token_stream ts;
-Symbol_table st;
+
 double expression();
 double assignment_fn(std::string name);
+Token_stream ts;
+Symbol_table st;
 
 
 double square_root_fn()
@@ -202,7 +188,8 @@ double square_root_fn()
     }
 }
 
-int power_fn()
+
+int power_fn(std::istream& input_stream = std::cin)
 {
     Token t = ts.get();
     switch(t.kind){
@@ -214,7 +201,7 @@ int power_fn()
             int i;
             if (t2.kind != ',') error("pow takes two arguments");
             
-            std::cin >> i;
+            input_stream >> i;
             double res = d;
             for(int n = 0; n < (i-1); n++){
                 res *= d;
@@ -227,6 +214,7 @@ int power_fn()
 		    error("function: 'pow' takes two arguments: pow(double x, int i)");
     }
 }
+
 
 double primary()
 {
@@ -260,6 +248,7 @@ double primary()
 	}
 }
 
+
 double term()
 {
 	double left = primary();
@@ -281,6 +270,7 @@ double term()
 		}
 	}
 }
+
 
 double expression()
 {
@@ -343,17 +333,16 @@ double statement()
 	}
 }
 
+
 void clean_up_mess()
 {
 	ts.ignore(print);
 }
 
-const std::string prompt = "> ";
-const std::string result = "= ";
 
-void calculate()
+void calculate(std::istream& input_stream = std::cin)
 {
-	while (std::cin) {
+	while (input_stream) {
         try {
             std::cout << prompt;
             Token t = ts.get();
@@ -364,10 +353,11 @@ void calculate()
         }
         catch (std::runtime_error& e) {
             std::cerr << e.what() << '\n';
-            clean_up_mess();
+            // clean_up_mess();
         }
     }
 }
+
 
 int main()
 {
@@ -379,13 +369,13 @@ int main()
     catch (std::exception& e) {
         std::cerr << "exception: " << e.what() << '\n';
         char c;
-        while (std::cin >> c && c != ';');
+        while (std::cin >> c && c != print);
         return 1;
     }
     catch (...) {
         std::cerr << "exception\n";
         char c;
-        while (std::cin >> c && c != ';');
+        while (std::cin >> c && c != print);
         return 2;
     }
 
